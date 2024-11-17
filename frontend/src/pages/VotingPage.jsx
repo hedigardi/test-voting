@@ -1,63 +1,113 @@
 import React, { useEffect, useState } from 'react';
-import { ethers } from 'ethers';
+import Web3 from 'web3';
 import { contractAddress, contractABI } from '../utils/contractConfig';
 
 const VotingPage = () => {
-    const [candidates, setCandidates] = useState([]);
-    const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [candidates, setCandidates] = useState([]);
+  const [error, setError] = useState('');
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [votingInProgress, setVotingInProgress] = useState(false);
 
-    useEffect(() => {
-        const fetchCandidates = async () => {
-            try {
-                const provider = new ethers.providers.Web3Provider(window.ethereum);
-                const contract = new ethers.Contract(contractAddress, contractABI, provider);
+  const connectWallet = async () => {
+    try {
+      if (!window.ethereum) {
+        throw new Error('MetaMask is not installed. Please install MetaMask to continue.');
+      }
 
-                const candidateCount = await contract.candidateCount();
-                const fetchedCandidates = [];
-                for (let i = 0; i < candidateCount; i++) {
-                    const candidate = await contract.getCandidate(i);
-                    fetchedCandidates.push({ id: i, name: candidate[0], votes: candidate[1] });
-                }
-                setCandidates(fetchedCandidates);
-            } catch (error) {
-                console.error(error);
-            }
-        };
-        fetchCandidates();
-    }, []);
+      const web3 = new Web3(window.ethereum);
+      const accounts = await web3.eth.requestAccounts(); // Request wallet connection
+      console.log('Connected account:', accounts[0]);
+      setWalletConnected(true);
+    } catch (err) {
+      console.error('Error connecting wallet:', err);
+      setError('Failed to connect wallet: ' + err.message);
+    }
+  };
 
-    const vote = async () => {
-        try {
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const signer = provider.getSigner();
-            const contract = new ethers.Contract(contractAddress, contractABI, signer);
+  const fetchCandidates = async () => {
+    try {
+      if (!window.ethereum) {
+        throw new Error('MetaMask is not installed. Please install MetaMask to continue.');
+      }
 
-            const tx = await contract.vote(selectedCandidate);
-            await tx.wait();
+      const web3 = new Web3(window.ethereum);
+      const contract = new web3.eth.Contract(contractABI, contractAddress);
 
-            alert('Vote cast successfully!');
-        } catch (error) {
-            console.error(error);
-            alert('Error casting vote!');
-        }
-    };
+      console.log('Fetching candidates...');
 
-    return (
-        <div>
-            <h1>Voting Page</h1>
-            <ul>
-                {candidates.map((c) => (
-                    <li key={c.id}>
-                        {c.name} - Votes: {c.votes}
-                        <button onClick={() => setSelectedCandidate(c.id)}>Vote</button>
-                    </li>
-                ))}
-            </ul>
-            {selectedCandidate !== null && (
-                <button onClick={vote}>Confirm Vote</button>
-            )}
-        </div>
-    );
+      const candidateCount = await contract.methods.candidateCount().call();
+      const fetchedCandidates = [];
+
+      for (let i = 0; i < candidateCount; i++) {
+        const candidate = await contract.methods.candidates(i).call();
+        fetchedCandidates.push({
+          id: i,
+          name: candidate.name,
+          votes: candidate.voteCount,
+        });
+      }
+
+      setCandidates(fetchedCandidates);
+      console.log('Candidates fetched:', fetchedCandidates);
+    } catch (err) {
+      console.error('Error fetching candidates:', err);
+      setError('Failed to fetch candidates: ' + err.message);
+    }
+  };
+
+  const voteForCandidate = async (candidateId) => {
+    setVotingInProgress(true);
+    setError('');
+    try {
+      if (!window.ethereum) {
+        throw new Error('MetaMask is not installed. Please install MetaMask to continue.');
+      }
+
+      const web3 = new Web3(window.ethereum);
+      const accounts = await web3.eth.getAccounts();
+      const account = accounts[0];
+
+      const contract = new web3.eth.Contract(contractABI, contractAddress);
+
+      console.log(`Voting for candidate ID ${candidateId}...`);
+
+      const tx = await contract.methods.vote(candidateId).send({ from: account });
+      console.log('Vote transaction hash:', tx.transactionHash);
+
+      fetchCandidates(); // Refresh the candidates list to show updated vote counts
+    } catch (err) {
+      console.error('Error voting for candidate:', err);
+      setError('Failed to vote: ' + err.message);
+    } finally {
+      setVotingInProgress(false);
+    }
+  };
+
+  useEffect(() => {
+    connectWallet();
+    fetchCandidates();
+  }, []);
+
+  return (
+    <div>
+      <h1>Voting Page</h1>
+      {!walletConnected && <button onClick={connectWallet}>Connect Wallet</button>}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <ul>
+        {candidates.map((candidate) => (
+          <li key={candidate.id}>
+            {candidate.name} - Votes: {candidate.votes}
+            <button
+              onClick={() => voteForCandidate(candidate.id)}
+              disabled={votingInProgress}
+            >
+              {votingInProgress ? 'Voting...' : 'Vote'}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 };
 
 export default VotingPage;
