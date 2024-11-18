@@ -12,6 +12,14 @@ const AdminPanel = () => {
   const [candidateName, setCandidateName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [walletConnected, setWalletConnected] = useState(false);
+  const [currentAccount, setCurrentAccount] = useState('');
+
+  const handleError = (message) => {
+    setErrorMessage(message);
+    setTimeout(() => {
+      setErrorMessage('');
+    }, 3000);
+  };
 
   const connectWallet = async () => {
     try {
@@ -19,10 +27,21 @@ const AdminPanel = () => {
         throw new Error('MetaMask is not installed.');
       }
       const web3 = new Web3(window.ethereum);
-      await web3.eth.requestAccounts();
+      const accounts = await web3.eth.requestAccounts();
       setWalletConnected(true);
+      setCurrentAccount(accounts[0]);
     } catch (err) {
-      setErrorMessage('Failed to connect wallet: ' + err.message);
+      handleError('Failed to connect wallet: ' + err.message);
+    }
+  };
+
+  const handleAccountChange = (accounts) => {
+    if (accounts.length > 0) {
+      setCurrentAccount(accounts[0]);
+      fetchSessions(); // Refresh sessions for the new account
+    } else {
+      setWalletConnected(false);
+      setCurrentAccount('');
     }
   };
 
@@ -53,7 +72,7 @@ const AdminPanel = () => {
       fetchSessions();
     } catch (err) {
       console.error('Error creating session:', err);
-      setErrorMessage('Failed to create session: ' + err.message);
+      handleError('Failed to create session: ' + err.message);
     }
   };
 
@@ -68,6 +87,7 @@ const AdminPanel = () => {
 
       for (let i = 0; i < sessionCount; i++) {
         const session = await contract.methods.votingSessions(i).call();
+        const creator = await contract.methods.getSessionCreator(i).call(); // Fetch creator
         const isCompleted = currentTime > Number(session.endTime);
         const isNotStarted = currentTime < Number(session.startTime);
 
@@ -83,10 +103,10 @@ const AdminPanel = () => {
             : session.isActive
             ? 'Active'
             : 'Inactive',
+          creator,
         });
       }
 
-      // Sort sessions: Active > Not Started > Completed
       fetchedSessions.sort((a, b) => {
         const statusOrder = {
           Active: 1,
@@ -98,13 +118,12 @@ const AdminPanel = () => {
 
       setSessions(fetchedSessions);
 
-      // Fetch candidates for all sessions
       for (const session of fetchedSessions) {
         fetchCandidates(session.id);
       }
     } catch (err) {
       console.error('Error fetching sessions:', err);
-      setErrorMessage('Failed to fetch sessions: ' + err.message);
+      handleError('Failed to fetch sessions: ' + err.message);
     }
   };
 
@@ -143,14 +162,9 @@ const AdminPanel = () => {
         throw new Error('Selected session does not exist.');
       }
 
-      // Check if the session is completed or inactive
-      if (selectedSession.status === 'Completed') {
-        setErrorMessage('Voting session is completed, not possible to add candidate.');
-        return;
-      }
-      if (selectedSession.status === 'Inactive') {
-        setErrorMessage('Voting session is inactive, not possible to add candidate.');
-        return;
+      // Normalize addresses for comparison
+      if (selectedSession.creator.toLowerCase() !== currentAccount.toLowerCase()) {
+        throw new Error('Only the creator of this voting session can add candidates.');
       }
 
       const currentTime = Math.floor(Date.now() / 1000);
@@ -170,26 +184,49 @@ const AdminPanel = () => {
 
       setCandidateName('');
       fetchCandidates(sessionId);
-      setErrorMessage(''); // Clear any previous error messages
+      handleError('Candidate added successfully.');
     } catch (err) {
       console.error('Error adding candidate:', err);
-      setErrorMessage('Failed to add candidate: ' + err.message);
+      handleError('Failed to add candidate: ' + err.message);
     }
   };
 
   useEffect(() => {
+    // Connect wallet on component load and fetch sessions
     connectWallet();
     fetchSessions();
+
+    // Add a listener for account changes in MetaMask
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', (accounts) => {
+        if (accounts.length > 0) {
+          setCurrentAccount(accounts[0]); // Update the current account
+          fetchSessions(); // Fetch sessions again to ensure creator logic works
+        } else {
+          setWalletConnected(false); // Handle wallet disconnection
+          setCurrentAccount('');
+        }
+      });
+    }
+
+    // Cleanup listener on unmount
+    return () => {
+      if (window.ethereum && window.ethereum.removeListener) {
+        window.ethereum.removeListener('accountsChanged', () => {});
+      }
+    };
   }, []);
 
   return (
     <div>
       <h1>Admin Panel</h1>
+      {/* Show the connect wallet button if the wallet is not connected */}
       {!walletConnected && <button onClick={connectWallet}>Connect Wallet</button>}
       {walletConnected && (
         <>
           <div>
-          {errorMessage && <p style={{ color: 'red' }}>{errorMessage}</p>}
+            {/* Display error messages, if any */}
+            {errorMessage && <p style={{ color: 'red' }}>{errorMessage}</p>}
             <h3>Create Voting Session</h3>
             <input
               type="text"
@@ -212,6 +249,7 @@ const AdminPanel = () => {
             <h3>Add Candidate</h3>
             <label>
               Select Session:
+              {/* Dropdown to select a session for adding candidates */}
               <select
                 onChange={(e) => setSelectedSessionId(e.target.value)}
                 value={selectedSessionId || ''}
@@ -232,18 +270,21 @@ const AdminPanel = () => {
               onChange={(e) => setCandidateName(e.target.value)}
               placeholder="Candidate Name"
             />
+            {/* Button to trigger the addition of a candidate */}
             <button onClick={addCandidate}>Add Candidate</button>
           </div>
 
           <div>
             <h3>Sessions and Candidates</h3>
             <ul>
+              {/* Display all sessions and their candidates */}
               {sessions.map((session) => (
                 <li key={session.id}>
-                  {session.title} ({session.status})
+                  {session.title} ({session.status}){' '}
                   (Start: {new Date(session.startTime * 1000).toLocaleString()}, End:{' '}
                   {new Date(session.endTime * 1000).toLocaleString()})
                   <ul>
+                    {/* List of candidates for the session */}
                     {candidatesBySession[session.id]?.map((candidate) => (
                       <li key={candidate.id}>{candidate.name}</li>
                     )) || <li>No candidates added yet.</li>}

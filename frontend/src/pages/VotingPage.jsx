@@ -19,9 +19,9 @@ const VotingPage = () => {
       const accounts = await web3.eth.requestAccounts();
       console.log('Connected account:', accounts[0]);
       setWalletConnected(true);
+      fetchSessions();
     } catch (err) {
-      console.error('Error connecting wallet:', err);
-      setError('Failed to connect wallet: ' + err.message);
+      handleError('Failed to connect wallet: ' + err.message);
     }
   };
 
@@ -82,8 +82,7 @@ const VotingPage = () => {
       setUserVotes(userVoteStatus); // Set the vote status for all sessions
       console.log('Filtered Sessions:', filteredSessions);
     } catch (err) {
-      console.error('Error fetching sessions:', err);
-      setError('Failed to fetch sessions: ' + err.message);
+      handleError('Failed to fetch sessions: ' + err.message);
     }
   };
 
@@ -108,53 +107,86 @@ const VotingPage = () => {
 
       fetchSessions(); // Refresh the sessions to show updated vote counts
     } catch (err) {
-      console.error('Error voting for candidate:', err);
-      setError('Failed to vote: ' + err.message);
+      handleError('Failed to vote: ' + err.message);
     } finally {
       setVotingInProgress(false);
     }
   };
 
+  const handleError = (message) => {
+    setError(message);
+    setTimeout(() => {
+      setError('');
+    }, 3000); // Clear error after 3 seconds
+  };
+
   useEffect(() => {
     connectWallet();
     fetchSessions();
+
+    // Listen for account changes
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', (accounts) => {
+        console.log('Accounts changed:', accounts);
+        if (accounts.length === 0) {
+          setWalletConnected(false);
+          setSessions([]);
+        } else {
+          fetchSessions();
+        }
+      });
+    }
+
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', fetchSessions);
+      }
+    };
   }, []);
 
   return (
     <div>
       <h1>Voting Page</h1>
-      {!walletConnected && <button onClick={connectWallet}>Connect Wallet</button>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      {sessions.length > 0 ? (
-        sessions.map((session) => (
-          <div key={session.id}>
-            <h3>
-              {session.title} ({session.status})
-            </h3>
-            <p>
-              Start: {new Date(session.startTime * 1000).toLocaleString()}, End:{' '}
-              {new Date(session.endTime * 1000).toLocaleString()}
-            </p>
-            {session.hasVoted && <p style={{ color: 'blue' }}>You have casted your vote.</p>}
-            <ul>
-              {session.candidates.map((candidate) => (
-                <li key={candidate.id}>
-                  {candidate.name} {candidate.votes}
-                  {session.status === 'Active' && !session.hasVoted && (
-                    <button
-                      onClick={() => voteForCandidate(session.id, candidate.id)}
-                      disabled={votingInProgress}
-                    >
-                      {votingInProgress ? 'Voting...' : 'Vote'}
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))
+      {!walletConnected ? (
+        <div>
+          <p>Connect your wallet to interact with the dApp.</p>
+          <button onClick={connectWallet}>Connect Wallet</button>
+        </div>
       ) : (
-        <p>No voting sessions available.</p>
+        <>
+          {error && <p style={{ color: 'red' }}>{error}</p>}
+          {sessions.length > 0 ? (
+            sessions.map((session) => (
+              <div key={session.id}>
+                <h3>
+                  {session.title} ({session.status})
+                </h3>
+                <p>
+                  Start: {new Date(session.startTime * 1000).toLocaleString()}, End:{' '}
+                  {new Date(session.endTime * 1000).toLocaleString()}
+                </p>
+                {session.hasVoted && <p style={{ color: 'blue' }}>You have casted your vote.</p>}
+                <ul>
+                  {session.candidates.map((candidate) => (
+                    <li key={candidate.id}>
+                      {candidate.name} {candidate.votes}
+                      {session.status === 'Active' && !session.hasVoted && (
+                        <button
+                          onClick={() => voteForCandidate(session.id, candidate.id)}
+                          disabled={votingInProgress}
+                        >
+                          {votingInProgress ? 'Voting...' : 'Vote'}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          ) : (
+            <p>No voting sessions available.</p>
+          )}
+        </>
       )}
     </div>
   );
