@@ -10,7 +10,8 @@ const App = () => {
     <Router>
       <Header />
       <Routes>
-        <Route path="/" element={<VotingPage />} />
+        <Route path="/" element={<VotingPage sessionId={1} />} /> {/* Replace 1 with a valid session ID */}
+        <Route path="/voting/:sessionId" element={<VotingPage />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/results" element={<ResultsPage />} />
       </Routes>

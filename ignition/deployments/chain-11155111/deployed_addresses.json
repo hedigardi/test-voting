@@ -1,4 +1,5 @@
 {
   "VotingModule#Voting": "0x39895F279626603b1FAd9740FE77b718C7CB483b",
-  "VotingSystemModule#VotingSystem": "0x9Cc93A8F7EbB6f92D35667d08EF92F00A4CAff55"
+  "VotingSystemModule#VotingSystem": "0x9Cc93A8F7EbB6f92D35667d08EF92F00A4CAff55",
+  "VotingContractModule#VotingContract": "0x5cA4e12cFBa49DaB679d02387F88CFFfAF98F49A"
 }

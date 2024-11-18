@@ -3,8 +3,7 @@ import Web3 from 'web3';
 import { contractAddress, contractABI } from '../utils/contractConfig';
 
 const ResultsPage = () => {
-  const [results, setResults] = useState([]);
-  const [winner, setWinner] = useState('');
+  const [sessions, setSessions] = useState([]);
   const [error, setError] = useState('');
   const [walletConnected, setWalletConnected] = useState(false);
 
@@ -23,23 +22,56 @@ const ResultsPage = () => {
 
   const fetchResults = async () => {
     try {
+      if (!window.ethereum) {
+        throw new Error('MetaMask is not installed.');
+      }
+
       const web3 = new Web3(window.ethereum);
       const contract = new web3.eth.Contract(contractABI, contractAddress);
 
-      const candidateCount = await contract.methods.candidateCount().call();
-      const fetchedResults = [];
-      for (let i = 0; i < candidateCount; i++) {
-        const candidate = await contract.methods.candidates(i).call();
-        fetchedResults.push({
-          name: candidate.name,
-          votes: candidate.voteCount,
+      const sessionCount = await contract.methods.sessionCount().call();
+      console.log('Total Sessions:', sessionCount);
+
+      const currentTime = Math.floor(Date.now() / 1000);
+      const fetchedSessions = [];
+      for (let i = 0; i < sessionCount; i++) {
+        const session = await contract.methods.votingSessions(i).call();
+        const candidates = await contract.methods.getCandidates(i).call();
+
+        const isCompleted = currentTime > Number(session.endTime);
+        let winner = null;
+        if (isCompleted) {
+          winner = await contract.methods.getWinner(i).call();
+        }
+
+        fetchedSessions.push({
+          id: Number(session.id),
+          title: session.title,
+          startTime: Number(session.startTime),
+          endTime: Number(session.endTime),
+          isActive: session.isActive,
+          isCompleted,
+          winner,
+          candidates: candidates.map((candidate, index) => ({
+            id: index,
+            name: candidate.name,
+            votes: Number(candidate.voteCount),
+          })),
         });
       }
-      setResults(fetchedResults);
 
-      const winnerName = await contract.methods.getWinner().call();
-      setWinner(winnerName);
+      fetchedSessions.sort((a, b) => {
+        if (a.isCompleted && !b.isCompleted) return -1;
+        if (!a.isCompleted && b.isCompleted) return 1;
+        if (a.isActive && !b.isActive) return -1;
+        if (!a.isActive && b.isActive) return 1;
+        return b.startTime - a.startTime;
+      });
+
+      setSessions(fetchedSessions);
+      console.log('Fetched and sorted Sessions with Results:', fetchedSessions);
     } catch (err) {
+      console.error('Error fetching results:', err);
       setError('Failed to fetch results: ' + err.message);
     }
   };
@@ -54,14 +86,33 @@ const ResultsPage = () => {
       <h1>Voting Results</h1>
       {!walletConnected && <button onClick={connectWallet}>Connect Wallet</button>}
       {error && <p style={{ color: 'red' }}>{error}</p>}
-      <ul>
-        {results.map((r, index) => (
-          <li key={index}>
-            {r.name} - Votes: {r.votes}
-          </li>
-        ))}
-      </ul>
-      {winner && <h2>Winner: {winner}</h2>}
+      {sessions.length > 0 ? (
+        sessions.map((session) => (
+          <div key={session.id}>
+            <h3>
+              {session.title} ({session.isCompleted ? 'Completed' : session.isActive ? 'Active' : 'Inactive'})
+            </h3>
+            <p>
+              Start: {new Date(session.startTime * 1000).toLocaleString()}, End:{' '}
+              {new Date(session.endTime * 1000).toLocaleString()}
+            </p>
+            <ul>
+              {session.candidates.map((candidate) => (
+                <li key={candidate.id}>
+                  {candidate.name} - Votes: {candidate.votes}
+                </li>
+              ))}
+            </ul>
+            {session.isCompleted && session.winner && (
+              <p>
+                <strong>Winner:</strong> {session.winner}
+              </p>
+            )}
+          </div>
+        ))
+      ) : (
+        <p>No sessions available.</p>
+      )}
     </div>
   );
 };
