@@ -69,22 +69,31 @@ const AdminPanel = () => {
       for (let i = 0; i < sessionCount; i++) {
         const session = await contract.methods.votingSessions(i).call();
         const isCompleted = currentTime > Number(session.endTime);
+        const isNotStarted = currentTime < Number(session.startTime);
+
         fetchedSessions.push({
           id: Number(session.id),
           title: session.title,
           startTime: Number(session.startTime),
           endTime: Number(session.endTime),
-          isActive: session.isActive && !isCompleted,
-          isCompleted,
+          status: isCompleted
+            ? 'Completed'
+            : isNotStarted
+            ? 'Not Started'
+            : session.isActive
+            ? 'Active'
+            : 'Inactive',
         });
       }
 
-      // Sort sessions: Active ones first, then by latest startTime
+      // Sort sessions: Active > Not Started > Completed
       fetchedSessions.sort((a, b) => {
-        if (a.isActive !== b.isActive) {
-          return b.isActive - a.isActive; // Active sessions first
-        }
-        return b.startTime - a.startTime; // Latest startTime first
+        const statusOrder = {
+          Active: 1,
+          'Not Started': 2,
+          Completed: 3,
+        };
+        return statusOrder[a.status] - statusOrder[b.status];
       });
 
       setSessions(fetchedSessions);
@@ -134,6 +143,16 @@ const AdminPanel = () => {
         throw new Error('Selected session does not exist.');
       }
 
+      // Check if the session is completed or inactive
+      if (selectedSession.status === 'Completed') {
+        setErrorMessage('Voting session is completed, not possible to add candidate.');
+        return;
+      }
+      if (selectedSession.status === 'Inactive') {
+        setErrorMessage('Voting session is inactive, not possible to add candidate.');
+        return;
+      }
+
       const currentTime = Math.floor(Date.now() / 1000);
       if (currentTime >= selectedSession.startTime) {
         throw new Error('Candidates cannot be added during the voting period.');
@@ -151,6 +170,7 @@ const AdminPanel = () => {
 
       setCandidateName('');
       fetchCandidates(sessionId);
+      setErrorMessage(''); // Clear any previous error messages
     } catch (err) {
       console.error('Error adding candidate:', err);
       setErrorMessage('Failed to add candidate: ' + err.message);
@@ -169,6 +189,7 @@ const AdminPanel = () => {
       {walletConnected && (
         <>
           <div>
+          {errorMessage && <p style={{ color: 'red' }}>{errorMessage}</p>}
             <h3>Create Voting Session</h3>
             <input
               type="text"
@@ -191,7 +212,10 @@ const AdminPanel = () => {
             <h3>Add Candidate</h3>
             <label>
               Select Session:
-              <select onChange={(e) => setSelectedSessionId(e.target.value)} value={selectedSessionId}>
+              <select
+                onChange={(e) => setSelectedSessionId(e.target.value)}
+                value={selectedSessionId || ''}
+              >
                 <option value="" disabled>
                   Select a session
                 </option>
@@ -216,13 +240,12 @@ const AdminPanel = () => {
             <ul>
               {sessions.map((session) => (
                 <li key={session.id}>
-                  {session.title} ({session.isCompleted ? 'Completed' : session.isActive ? 'Active' : 'Inactive'}) 
-                  (Start: {new Date(session.startTime * 1000).toLocaleString()}, End: {new Date(session.endTime * 1000).toLocaleString()})
+                  {session.title} ({session.status})
+                  (Start: {new Date(session.startTime * 1000).toLocaleString()}, End:{' '}
+                  {new Date(session.endTime * 1000).toLocaleString()})
                   <ul>
                     {candidatesBySession[session.id]?.map((candidate) => (
-                      <li key={candidate.id}>
-                        {candidate.name}
-                      </li>
+                      <li key={candidate.id}>{candidate.name}</li>
                     )) || <li>No candidates added yet.</li>}
                   </ul>
                 </li>
@@ -231,7 +254,6 @@ const AdminPanel = () => {
           </div>
         </>
       )}
-      {errorMessage && <p style={{ color: 'red' }}>{errorMessage}</p>}
     </div>
   );
 };

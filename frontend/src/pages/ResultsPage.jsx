@@ -34,14 +34,20 @@ const ResultsPage = () => {
 
       const currentTime = Math.floor(Date.now() / 1000);
       const fetchedSessions = [];
+
       for (let i = 0; i < sessionCount; i++) {
         const session = await contract.methods.votingSessions(i).call();
         const candidates = await contract.methods.getCandidates(i).call();
 
         const isCompleted = currentTime > Number(session.endTime);
+        const isNotStarted = currentTime < Number(session.startTime);
         let winner = null;
+        let isTie = false;
+
         if (isCompleted) {
-          winner = await contract.methods.getWinner(i).call();
+          const result = await contract.methods.getWinner(i).call();
+          winner = result[0];
+          isTie = result[1];
         }
 
         fetchedSessions.push({
@@ -49,9 +55,15 @@ const ResultsPage = () => {
           title: session.title,
           startTime: Number(session.startTime),
           endTime: Number(session.endTime),
-          isActive: session.isActive,
-          isCompleted,
+          status: isCompleted
+            ? 'Completed'
+            : isNotStarted
+            ? 'Not Started'
+            : session.isActive
+            ? 'Active'
+            : 'Inactive',
           winner,
+          isTie,
           candidates: candidates.map((candidate, index) => ({
             id: index,
             name: candidate.name,
@@ -60,16 +72,8 @@ const ResultsPage = () => {
         });
       }
 
-      fetchedSessions.sort((a, b) => {
-        if (a.isCompleted && !b.isCompleted) return -1;
-        if (!a.isCompleted && b.isCompleted) return 1;
-        if (a.isActive && !b.isActive) return -1;
-        if (!a.isActive && b.isActive) return 1;
-        return b.startTime - a.startTime;
-      });
-
       setSessions(fetchedSessions);
-      console.log('Fetched and sorted Sessions with Results:', fetchedSessions);
+      console.log('Fetched Sessions with Results:', fetchedSessions);
     } catch (err) {
       console.error('Error fetching results:', err);
       setError('Failed to fetch results: ' + err.message);
@@ -90,7 +94,7 @@ const ResultsPage = () => {
         sessions.map((session) => (
           <div key={session.id}>
             <h3>
-              {session.title} ({session.isCompleted ? 'Completed' : session.isActive ? 'Active' : 'Inactive'})
+              {session.title} ({session.status})
             </h3>
             <p>
               Start: {new Date(session.startTime * 1000).toLocaleString()}, End:{' '}
@@ -103,9 +107,16 @@ const ResultsPage = () => {
                 </li>
               ))}
             </ul>
-            {session.isCompleted && session.winner && (
+            {session.status === 'Completed' && (
               <p>
-                <strong>Winner:</strong> {session.winner}
+                <strong>Winner:</strong>{' '}
+                {session.isTie ? (
+                  <span style={{ color: 'red' }}>
+                    Unfortunately, there is no clear winner, as the result is a tie.
+                  </span>
+                ) : (
+                  session.winner
+                )}
               </p>
             )}
           </div>

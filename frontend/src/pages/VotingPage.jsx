@@ -60,6 +60,8 @@ const VotingPage = () => {
           status: session.isActive
             ? isCompleted
               ? 'Completed'
+              : currentTime < Number(session.startTime)
+              ? 'Not Started'
               : 'Active'
             : 'Inactive',
           hasVoted,
@@ -71,12 +73,14 @@ const VotingPage = () => {
         });
       }
 
-      // Filter to include only active sessions
-      const activeSessions = fetchedSessions.filter((session) => session.status === 'Active');
+      // Filter only Not Started and Active sessions
+      const filteredSessions = fetchedSessions.filter(
+        (session) => session.status === 'Not Started' || session.status === 'Active'
+      );
 
-      setSessions(activeSessions); // Only set active sessions
+      setSessions(filteredSessions);
       setUserVotes(userVoteStatus); // Set the vote status for all sessions
-      console.log('Fetched and filtered active Sessions:', activeSessions);
+      console.log('Filtered Sessions:', filteredSessions);
     } catch (err) {
       console.error('Error fetching sessions:', err);
       setError('Failed to fetch sessions: ' + err.message);
@@ -150,7 +154,7 @@ const VotingPage = () => {
           </div>
         ))
       ) : (
-        <p>No active sessions available.</p>
+        <p>No voting sessions available.</p>
       )}
     </div>
   );
