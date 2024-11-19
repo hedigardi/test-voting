@@ -76,8 +76,18 @@ const ResultsPage = () => {
         });
       }
   
+      // Sort the sessions based on the status order
+      const statusOrder = {
+        Completed: 1,
+        Active: 2,
+        'Not Started': 3,
+        Inactive: 4,
+      };
+  
+      fetchedSessions.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+  
       setSessions(fetchedSessions);
-      console.log('Fetched Sessions with Results:', fetchedSessions);
+      console.log('Sorted Sessions with Results:', fetchedSessions);
     } catch (err) {
       console.error('Error fetching results:', err);
       setError('Failed to fetch results: ' + err.message);
@@ -90,43 +100,60 @@ const ResultsPage = () => {
   }, []);
 
   return (
-    <div>
-      <h1>Voting Results</h1>
-      {!walletConnected && <button onClick={connectWallet}>Connect Wallet</button>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+    <div className="container mt-5">
+      <h1 className="text-center">Voting Results</h1>
+      {!walletConnected && (
+        <div className="text-center">
+          <button className="btn btn-primary" onClick={connectWallet}>
+            Connect Wallet
+          </button>
+        </div>
+      )}
+      {error && <div className="alert alert-danger">{error}</div>}
       {sessions.length > 0 ? (
-        sessions.map((session) => (
-          <div key={session.id}>
-            <h3>
-              {session.title} ({session.status})
-            </h3>
-            <p>
-              Start: {new Date(session.startTime * 1000).toLocaleString()}, End:{' '}
-              {new Date(session.endTime * 1000).toLocaleString()}
-            </p>
-            <ul>
-              {session.candidates.map((candidate) => (
-                <li key={candidate.id}>
-                  {candidate.name} - Votes: {candidate.votes}
-                </li>
-              ))}
-            </ul>
-            {session.status === 'Completed' && (
-              <p>
-                <strong>Winner:</strong>{' '}
-                {session.isTie ? (
-                  <span style={{ color: 'red' }}>
-                    Unfortunately, there is no clear winner, as the result is a tie.
-                  </span>
-                ) : (
-                  session.winner
-                )}
-              </p>
-            )}
-          </div>
-        ))
+        <div className="row">
+          {sessions.map((session) => (
+            <div className="col-md-6 mb-4" key={session.id}>
+              <div className="card">
+                <div className="card-body">
+                  <h3 className="card-title">
+                    {session.title} <span className={`badge bg-${session.status === 'Completed' ? 'success' : session.status === 'Active' ? 'info' : 'secondary'}`}>{session.status}</span>
+                  </h3>
+                  <p>
+                    <strong>Start:</strong> {new Date(session.startTime * 1000).toLocaleString()}
+                    <br />
+                    <strong>End:</strong> {new Date(session.endTime * 1000).toLocaleString()}
+                  </p>
+                  <ul className="list-group mb-3">
+                    {session.candidates.map((candidate) => (
+                      <li
+                        className="list-group-item d-flex justify-content-between align-items-center"
+                        key={candidate.id}
+                      >
+                        {candidate.name}
+                        <span className="badge bg-primary">
+                          {candidate.votes} {candidate.votes === 1 ? 'vote' : 'votes'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {session.status === 'Completed' && (
+                    <p className="text-success">
+                      <strong>Winner:</strong>{' '}
+                      {session.isTie ? (
+                        <span className="text-danger">No clear winner (tie)</span>
+                      ) : (
+                        session.winner
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
-        <p>No sessions available.</p>
+        <p className="text-center">No sessions available.</p>
       )}
     </div>
   );

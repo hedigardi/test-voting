@@ -35,16 +35,6 @@ const AdminPanel = () => {
     }
   };
 
-  const handleAccountChange = (accounts) => {
-    if (accounts.length > 0) {
-      setCurrentAccount(accounts[0]);
-      fetchSessions(); // Refresh sessions for the new account
-    } else {
-      setWalletConnected(false);
-      setCurrentAccount('');
-    }
-  };
-
   const createSession = async () => {
     try {
       if (!title || !startTime || !endTime) {
@@ -75,6 +65,25 @@ const AdminPanel = () => {
       handleError('Failed to create session: ' + err.message);
     }
   };
+
+  const fetchCandidates = async (sessionId) => {
+    try {
+      const web3 = new Web3(window.ethereum);
+      const contract = new web3.eth.Contract(contractABI, contractAddress);
+  
+      const candidates = await contract.methods.getCandidates(sessionId).call();
+      setCandidatesBySession((prev) => ({
+        ...prev,
+        [sessionId]: candidates.map((candidate, index) => ({
+          id: index,
+          name: candidate.name,
+          votes: candidate.voteCount,
+        })),
+      }));
+    } catch (err) {
+      console.error(`Error fetching candidates for session ${sessionId}:`, err);
+    }
+  };  
 
   const fetchSessions = async () => {
     try {
@@ -127,25 +136,6 @@ const AdminPanel = () => {
     }
   };
 
-  const fetchCandidates = async (sessionId) => {
-    try {
-      const web3 = new Web3(window.ethereum);
-      const contract = new web3.eth.Contract(contractABI, contractAddress);
-
-      const candidates = await contract.methods.getCandidates(sessionId).call();
-      setCandidatesBySession((prev) => ({
-        ...prev,
-        [sessionId]: candidates.map((candidate, index) => ({
-          id: index,
-          name: candidate.name,
-          votes: candidate.voteCount,
-        })),
-      }));
-    } catch (err) {
-      console.error(`Error fetching candidates for session ${sessionId}:`, err);
-    }
-  };
-
   const addCandidate = async () => {
     try {
       if (!selectedSessionId || candidateName.trim() === '') {
@@ -162,7 +152,6 @@ const AdminPanel = () => {
         throw new Error('Selected session does not exist.');
       }
 
-      // Normalize addresses for comparison
       if (selectedSession.creator.toLowerCase() !== currentAccount.toLowerCase()) {
         throw new Error('Only the creator of this voting session can add candidates.');
       }
@@ -192,24 +181,21 @@ const AdminPanel = () => {
   };
 
   useEffect(() => {
-    // Connect wallet on component load and fetch sessions
     connectWallet();
     fetchSessions();
 
-    // Add a listener for account changes in MetaMask
     if (window.ethereum) {
       window.ethereum.on('accountsChanged', (accounts) => {
         if (accounts.length > 0) {
-          setCurrentAccount(accounts[0]); // Update the current account
-          fetchSessions(); // Fetch sessions again to ensure creator logic works
+          setCurrentAccount(accounts[0]);
+          fetchSessions();
         } else {
-          setWalletConnected(false); // Handle wallet disconnection
+          setWalletConnected(false);
           setCurrentAccount('');
         }
       });
     }
 
-    // Cleanup listener on unmount
     return () => {
       if (window.ethereum && window.ethereum.removeListener) {
         window.ethereum.removeListener('accountsChanged', () => {});
@@ -218,81 +204,134 @@ const AdminPanel = () => {
   }, []);
 
   return (
-    <div>
-      <h1>Admin Panel</h1>
-      {/* Show the connect wallet button if the wallet is not connected */}
-      {!walletConnected && <button onClick={connectWallet}>Connect Wallet</button>}
+    <div className="container mt-5">
+      <h1 className="text-center">Admin Panel</h1>
+      {!walletConnected && (
+        <div className="text-center">
+          <button className="btn btn-primary" onClick={connectWallet}>
+            Connect Wallet
+          </button>
+        </div>
+      )}
       {walletConnected && (
         <>
-          <div>
-            {/* Display error messages, if any */}
-            {errorMessage && <p style={{ color: 'red' }}>{errorMessage}</p>}
-            <h3>Create Voting Session</h3>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Voting Title"
-            />
-            <label>
-              Start Time:
-              <input type="datetime-local" onChange={(e) => setStartTime(e.target.value)} />
-            </label>
-            <label>
-              End Time:
-              <input type="datetime-local" onChange={(e) => setEndTime(e.target.value)} />
-            </label>
-            <button onClick={createSession}>Create Voting Session</button>
+          {errorMessage && <div className="alert alert-danger">{errorMessage}</div>}
+          <div className="card mb-4">
+            <div className="card-body">
+              <h3 className="card-title">Create Voting Session</h3>
+              <div className="mb-3">
+                <input
+                  type="text"
+                  className="form-control"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Voting Title"
+                />
+              </div>
+              <div className="mb-3">
+                <label className="form-label">Start Time</label>
+                <input
+                  type="datetime-local"
+                  className="form-control"
+                  onChange={(e) => setStartTime(e.target.value)}
+                />
+              </div>
+              <div className="mb-3">
+                <label className="form-label">End Time</label>
+                <input
+                  type="datetime-local"
+                  className="form-control"
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </div>
+              <button className="btn btn-success" onClick={createSession}>
+                Create Voting Session
+              </button>
+            </div>
           </div>
-
-          <div>
-            <h3>Add Candidate</h3>
-            <label>
-              Select Session:
-              {/* Dropdown to select a session for adding candidates */}
-              <select
-                onChange={(e) => setSelectedSessionId(e.target.value)}
-                value={selectedSessionId || ''}
-              >
-                <option value="" disabled>
-                  Select a session
-                </option>
-                {sessions.map((session) => (
-                  <option key={session.id} value={session.id}>
-                    {session.title}
+          <div className="card mb-4">
+            <div className="card-body">
+              <h3 className="card-title">Add Candidate</h3>
+              <div className="mb-3">
+                <label className="form-label">Select Session</label>
+                <select
+                  className="form-select"
+                  onChange={(e) => setSelectedSessionId(e.target.value)}
+                  value={selectedSessionId || ''}
+                >
+                  <option value="" disabled>
+                    Select a session
                   </option>
-                ))}
-              </select>
-            </label>
-            <input
-              type="text"
-              value={candidateName}
-              onChange={(e) => setCandidateName(e.target.value)}
-              placeholder="Candidate Name"
-            />
-            {/* Button to trigger the addition of a candidate */}
-            <button onClick={addCandidate}>Add Candidate</button>
+                  {sessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-3">
+                <input
+                  type="text"
+                  className="form-control"
+                  value={candidateName}
+                  onChange={(e) => setCandidateName(e.target.value)}
+                  placeholder="Candidate Name"
+                />
+              </div>
+              <button className="btn btn-warning" onClick={addCandidate}>
+                Add Candidate
+              </button>
+            </div>
           </div>
-
-          <div>
-            <h3>Sessions and Candidates</h3>
-            <ul>
-              {/* Display all sessions and their candidates */}
+          <div className="card">
+          <div className="card-body">
+            <h3 className="card-title">Sessions and Candidates</h3>
+            <div className="row">
               {sessions.map((session) => (
-                <li key={session.id}>
-                  {session.title} ({session.status}){' '}
-                  (Start: {new Date(session.startTime * 1000).toLocaleString()}, End:{' '}
-                  {new Date(session.endTime * 1000).toLocaleString()})
-                  <ul>
-                    {/* List of candidates for the session */}
-                    {candidatesBySession[session.id]?.map((candidate) => (
-                      <li key={candidate.id}>{candidate.name}</li>
-                    )) || <li>No candidates added yet.</li>}
-                  </ul>
-                </li>
+                <div className="col-md-6 mb-4" key={session.id}>
+                  <div className="card">
+                    <div className="card-body">
+                      <h3 className="card-title">
+                        {session.title}{' '}
+                        <span
+                          className={`badge bg-${
+                            session.status === 'Not Started'
+                              ? 'secondary'
+                              : session.status === 'Active'
+                              ? 'info'
+                              : 'success'
+                          }`}
+                        >
+                          {session.status}
+                        </span>
+                      </h3>
+                      <p>
+                        <strong>Start:</strong> {new Date(session.startTime * 1000).toLocaleString()}
+                        <br />
+                        <strong>End:</strong> {new Date(session.endTime * 1000).toLocaleString()}
+                      </p>
+                      <ul className="list-group">
+                        {candidatesBySession[session.id]?.length > 0 ? (
+                          candidatesBySession[session.id].map((candidate) => (
+                            <li
+                              className="list-group-item d-flex justify-content-between align-items-center"
+                              key={candidate.id}
+                            >
+                              {candidate.name}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="list-group-item">No candidates added!</li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
+        </div>
+
         </>
       )}
     </div>
