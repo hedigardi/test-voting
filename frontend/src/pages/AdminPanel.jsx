@@ -11,6 +11,7 @@ const AdminPanel = () => {
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [candidateName, setCandidateName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState(''); // State for success messages
   const [walletConnected, setWalletConnected] = useState(false);
   const [currentAccount, setCurrentAccount] = useState('');
 
@@ -18,6 +19,13 @@ const AdminPanel = () => {
     setErrorMessage(message);
     setTimeout(() => {
       setErrorMessage('');
+    }, 3000);
+  };
+
+  const handleSuccess = (message) => {
+    setSuccessMessage(message);
+    setTimeout(() => {
+      setSuccessMessage('');
     }, 3000);
   };
 
@@ -60,6 +68,7 @@ const AdminPanel = () => {
       console.log('Session created. Transaction hash:', tx.transactionHash);
 
       fetchSessions();
+      handleSuccess('Voting session created successfully!');
     } catch (err) {
       console.error('Error creating session:', err);
       handleError('Failed to create session: ' + err.message);
@@ -70,7 +79,7 @@ const AdminPanel = () => {
     try {
       const web3 = new Web3(window.ethereum);
       const contract = new web3.eth.Contract(contractABI, contractAddress);
-  
+
       const candidates = await contract.methods.getCandidates(sessionId).call();
       setCandidatesBySession((prev) => ({
         ...prev,
@@ -83,7 +92,7 @@ const AdminPanel = () => {
     } catch (err) {
       console.error(`Error fetching candidates for session ${sessionId}:`, err);
     }
-  };  
+  };
 
   const fetchSessions = async () => {
     try {
@@ -96,7 +105,7 @@ const AdminPanel = () => {
 
       for (let i = 0; i < sessionCount; i++) {
         const session = await contract.methods.votingSessions(i).call();
-        const creator = await contract.methods.getSessionCreator(i).call(); // Fetch creator
+        const creator = await contract.methods.getSessionCreator(i).call();
         const isCompleted = currentTime > Number(session.endTime);
         const isNotStarted = currentTime < Number(session.startTime);
 
@@ -173,7 +182,7 @@ const AdminPanel = () => {
 
       setCandidateName('');
       fetchCandidates(sessionId);
-      handleError('Candidate added successfully.');
+      handleSuccess('Candidate added successfully!');
     } catch (err) {
       console.error('Error adding candidate:', err);
       handleError('Failed to add candidate: ' + err.message);
@@ -215,6 +224,7 @@ const AdminPanel = () => {
       )}
       {walletConnected && (
         <>
+          {successMessage && <div className="alert alert-success">{successMessage}</div>}
           {errorMessage && <div className="alert alert-danger">{errorMessage}</div>}
           <div className="card mb-4">
             <div className="card-body">
