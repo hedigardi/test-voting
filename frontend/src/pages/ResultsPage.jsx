@@ -25,31 +25,35 @@ const ResultsPage = () => {
       if (!window.ethereum) {
         throw new Error('MetaMask is not installed.');
       }
-
+  
       const web3 = new Web3(window.ethereum);
       const contract = new web3.eth.Contract(contractABI, contractAddress);
-
+  
       const sessionCount = await contract.methods.sessionCount().call();
       console.log('Total Sessions:', sessionCount);
-
+  
       const currentTime = Math.floor(Date.now() / 1000);
       const fetchedSessions = [];
-
+  
       for (let i = 0; i < sessionCount; i++) {
         const session = await contract.methods.votingSessions(i).call();
         const candidates = await contract.methods.getCandidates(i).call();
-
+  
         const isCompleted = currentTime > Number(session.endTime);
         const isNotStarted = currentTime < Number(session.startTime);
         let winner = null;
         let isTie = false;
-
-        if (isCompleted) {
-          const result = await contract.methods.getWinner(i).call();
-          winner = result[0];
-          isTie = result[1];
+  
+        if (isCompleted && candidates.length > 0) {
+          try {
+            const result = await contract.methods.getWinner(i).call();
+            winner = result[0];
+            isTie = result[1];
+          } catch (error) {
+            console.error(`Error fetching winner for session ${i}:`, error.message);
+          }
         }
-
+  
         fetchedSessions.push({
           id: Number(session.id),
           title: session.title,
@@ -62,8 +66,8 @@ const ResultsPage = () => {
             : session.isActive
             ? 'Active'
             : 'Inactive',
-          winner,
-          isTie,
+          winner: candidates.length > 0 ? winner : 'No candidates',
+          isTie: candidates.length > 0 && isTie,
           candidates: candidates.map((candidate, index) => ({
             id: index,
             name: candidate.name,
@@ -71,14 +75,14 @@ const ResultsPage = () => {
           })),
         });
       }
-
+  
       setSessions(fetchedSessions);
       console.log('Fetched Sessions with Results:', fetchedSessions);
     } catch (err) {
       console.error('Error fetching results:', err);
       setError('Failed to fetch results: ' + err.message);
     }
-  };
+  };  
 
   useEffect(() => {
     connectWallet();
