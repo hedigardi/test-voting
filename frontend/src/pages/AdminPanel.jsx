@@ -11,9 +11,10 @@ const AdminPanel = () => {
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [candidateName, setCandidateName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState(''); // State for success messages
+  const [successMessage, setSuccessMessage] = useState('');
   const [walletConnected, setWalletConnected] = useState(false);
   const [currentAccount, setCurrentAccount] = useState('');
+  const [loading, setLoading] = useState(false); // State to manage loading modal
 
   const handleError = (message) => {
     setErrorMessage(message);
@@ -34,12 +35,16 @@ const AdminPanel = () => {
       if (!window.ethereum) {
         throw new Error('MetaMask is not installed.');
       }
+      setLoading(true);
       const web3 = new Web3(window.ethereum);
       const accounts = await web3.eth.requestAccounts();
       setWalletConnected(true);
       setCurrentAccount(accounts[0]);
+      await fetchSessions();
     } catch (err) {
       handleError('Failed to connect wallet: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -49,6 +54,7 @@ const AdminPanel = () => {
         throw new Error('All fields are required to create a session.');
       }
 
+      setLoading(true);
       const web3 = new Web3(window.ethereum);
       const accounts = await web3.eth.getAccounts();
       const account = accounts[0];
@@ -67,16 +73,19 @@ const AdminPanel = () => {
         .send({ from: account });
       console.log('Session created. Transaction hash:', tx.transactionHash);
 
-      fetchSessions();
+      await fetchSessions();
       handleSuccess('Voting session created successfully!');
     } catch (err) {
       console.error('Error creating session:', err);
       handleError('Failed to create session: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchCandidates = async (sessionId) => {
     try {
+      setLoading(true);
       const web3 = new Web3(window.ethereum);
       const contract = new web3.eth.Contract(contractABI, contractAddress);
 
@@ -91,11 +100,14 @@ const AdminPanel = () => {
       }));
     } catch (err) {
       console.error(`Error fetching candidates for session ${sessionId}:`, err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchSessions = async () => {
     try {
+      setLoading(true);
       const web3 = new Web3(window.ethereum);
       const contract = new web3.eth.Contract(contractABI, contractAddress);
 
@@ -142,6 +154,8 @@ const AdminPanel = () => {
     } catch (err) {
       console.error('Error fetching sessions:', err);
       handleError('Failed to fetch sessions: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -151,6 +165,7 @@ const AdminPanel = () => {
         throw new Error('Please select a valid session and enter a candidate name.');
       }
 
+      setLoading(true);
       const sessionId = Number(selectedSessionId);
       if (isNaN(sessionId)) {
         throw new Error('Invalid session ID.');
@@ -181,17 +196,18 @@ const AdminPanel = () => {
       console.log('Candidate added. Transaction hash:', tx.transactionHash);
 
       setCandidateName('');
-      fetchCandidates(sessionId);
+      await fetchCandidates(sessionId);
       handleSuccess('Candidate added successfully!');
     } catch (err) {
       console.error('Error adding candidate:', err);
       handleError('Failed to add candidate: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     connectWallet();
-    fetchSessions();
 
     if (window.ethereum) {
       window.ethereum.on('accountsChanged', (accounts) => {
@@ -215,6 +231,22 @@ const AdminPanel = () => {
   return (
     <div className="container mt-5">
       <h1 className="text-center">Admin Panel</h1>
+
+      {loading && (
+        <div className="modal show d-block" tabIndex="-1">
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-body text-center">
+                <div className="spinner-border text-primary" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+                <p className="mt-3">Please wait...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!walletConnected && (
         <div className="text-center">
           <button className="btn btn-primary" onClick={connectWallet}>
@@ -222,6 +254,7 @@ const AdminPanel = () => {
           </button>
         </div>
       )}
+      
       {walletConnected && (
         <>
           {successMessage && <div className="alert alert-success">{successMessage}</div>}

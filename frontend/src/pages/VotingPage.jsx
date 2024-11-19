@@ -6,7 +6,7 @@ const VotingPage = () => {
   const [sessions, setSessions] = useState([]);
   const [error, setError] = useState('');
   const [walletConnected, setWalletConnected] = useState(false);
-  const [votingInProgress, setVotingInProgress] = useState(false);
+  const [loading, setLoading] = useState(false); // Loading state
   const [userVotes, setUserVotes] = useState({});
 
   const connectWallet = async () => {
@@ -14,14 +14,16 @@ const VotingPage = () => {
       if (!window.ethereum) {
         throw new Error('MetaMask is not installed. Please install MetaMask to continue.');
       }
-
+      setLoading(true);
       const web3 = new Web3(window.ethereum);
       const accounts = await web3.eth.requestAccounts();
       console.log('Connected account:', accounts[0]);
       setWalletConnected(true);
-      fetchSessions();
+      await fetchSessions();
     } catch (err) {
       handleError('Failed to connect wallet: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -30,27 +32,28 @@ const VotingPage = () => {
       if (!window.ethereum) {
         throw new Error('MetaMask is not installed. Please install MetaMask to continue.');
       }
-  
+
+      setLoading(true);
       const web3 = new Web3(window.ethereum);
       const contract = new web3.eth.Contract(contractABI, contractAddress);
-  
+
       const accounts = await web3.eth.getAccounts();
       const account = accounts[0];
-  
+
       const sessionCount = await contract.methods.sessionCount().call();
       console.log('Total Sessions:', sessionCount);
-  
+
       const currentTime = Math.floor(Date.now() / 1000);
       const fetchedSessions = [];
       const userVoteStatus = {};
-  
+
       for (let i = 0; i < sessionCount; i++) {
         const session = await contract.methods.votingSessions(i).call();
         const candidates = await contract.methods.getCandidates(i).call();
         const hasVoted = await contract.methods.hasUserVoted(i, account).call();
-  
+
         userVoteStatus[i] = hasVoted;
-  
+
         const isCompleted = currentTime > Number(session.endTime);
         fetchedSessions.push({
           id: Number(session.id),
@@ -72,29 +75,29 @@ const VotingPage = () => {
           })),
         });
       }
-  
+
       const filteredSessions = fetchedSessions.filter(
         (session) => session.status === 'Not Started' || session.status === 'Active'
       );
-  
-      // Sort sessions: "Active" first, "Not Started" second
+
       filteredSessions.sort((a, b) => {
         const statusOrder = { Active: 1, 'Not Started': 2 };
         return statusOrder[a.status] - statusOrder[b.status];
       });
-  
+
       setSessions(filteredSessions);
       setUserVotes(userVoteStatus);
       console.log('Filtered and Sorted Sessions:', filteredSessions);
     } catch (err) {
       handleError('Failed to fetch sessions: ' + err.message);
+    } finally {
+      setLoading(false);
     }
-  };  
+  };
 
   const voteForCandidate = async (sessionId, candidateId) => {
-    setVotingInProgress(true);
-    setError('');
     try {
+      setLoading(true);
       if (!window.ethereum) {
         throw new Error('MetaMask is not installed. Please install MetaMask to continue.');
       }
@@ -110,11 +113,11 @@ const VotingPage = () => {
       const tx = await contract.methods.vote(sessionId, candidateId).send({ from: account });
       console.log('Vote transaction hash:', tx.transactionHash);
 
-      fetchSessions();
+      await fetchSessions();
     } catch (err) {
       handleError('Failed to vote: ' + err.message);
     } finally {
-      setVotingInProgress(false);
+      setLoading(false);
     }
   };
 
@@ -151,6 +154,20 @@ const VotingPage = () => {
   return (
     <div className="container mt-5">
       <h1 className="text-center">Voting Page</h1>
+      {loading && (
+        <div className="modal show d-block" tabIndex="-1">
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-body text-center">
+                <div className="spinner-border text-primary" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+                <p className="mt-3">Processing, please wait...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {!walletConnected ? (
         <div className="text-center">
           <p>Connect your wallet to interact with the dApp.</p>
@@ -201,9 +218,8 @@ const VotingPage = () => {
                           <button
                             className="btn btn-success"
                             onClick={() => voteForCandidate(session.id, candidate.id)}
-                            disabled={votingInProgress}
                           >
-                            {votingInProgress ? 'Voting...' : 'Vote'}
+                            Vote
                           </button>
                         )}
                       </li>

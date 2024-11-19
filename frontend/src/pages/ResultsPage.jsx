@@ -6,19 +6,23 @@ const ResultsPage = () => {
   const [sessions, setSessions] = useState([]);
   const [error, setError] = useState('');
   const [walletConnected, setWalletConnected] = useState(false);
+  const [loading, setLoading] = useState(false); // Loading state
 
   const connectWallet = async () => {
     try {
       if (!window.ethereum) {
         throw new Error('MetaMask is not installed.');
       }
+      setLoading(true);
       const web3 = new Web3(window.ethereum);
       const accounts = await web3.eth.requestAccounts();
       console.log('Connected account:', accounts[0]);
       setWalletConnected(true);
-      fetchResults();
+      await fetchResults();
     } catch (err) {
       setError('Failed to connect wallet: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -28,6 +32,7 @@ const ResultsPage = () => {
         throw new Error('MetaMask is not installed.');
       }
 
+      setLoading(true);
       const web3 = new Web3(window.ethereum);
       const contract = new web3.eth.Contract(contractABI, contractAddress);
 
@@ -92,6 +97,8 @@ const ResultsPage = () => {
     } catch (err) {
       console.error('Error fetching results:', err);
       setError('Failed to fetch results: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -104,7 +111,7 @@ const ResultsPage = () => {
           if (accounts.length > 0) {
             console.log('Wallet is already connected:', accounts[0]);
             setWalletConnected(true);
-            fetchResults();
+            await fetchResults();
           }
         } catch (err) {
           console.error('Error checking wallet connection:', err.message);
@@ -137,6 +144,22 @@ const ResultsPage = () => {
   return (
     <div className="container mt-5">
       <h1 className="text-center">Voting Results</h1>
+
+      {loading && (
+        <div className="modal show d-block" tabIndex="-1">
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-body text-center">
+                <div className="spinner-border text-primary" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+                <p className="mt-3">Loading results, please wait...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!walletConnected ? (
         <div className="text-center">
           <p>Connect your wallet to interact with the dApp.</p>
