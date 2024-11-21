@@ -264,7 +264,7 @@ const VotingPage = () => {
           )}
 
           {/* Legal Considerations */}
-          <div className="card mt-4">
+          <div className="card bg-light mb-4">
             <div className="card-body">
               <h5 className="card-title">Legal Considerations</h5>
               <p className="card-text">
@@ -286,7 +286,7 @@ const VotingPage = () => {
                   the technology.
                 </li>
               </ul>
-              <p className="text-muted">
+              <p className="p-3 mb-2 bg-light text-dark">
                 Ensure that you understand and accept these terms before participating in the
                 voting process.
               </p>
