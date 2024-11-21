@@ -103,6 +103,7 @@ Start the React frontend:
 cd frontend
 npm start
 ```
+---
 
 ## Usage Guidelines
 ### 1. Connect Wallet
@@ -124,6 +125,8 @@ npm start
 ### 5. View Results (All Users)
   * Completed voting sessions are visible on the Results Page, showing the winner or indicating a tie.
 
+---
+
 ## Smart Contract Overview
 The smart contract includes the following functionalities:
 
@@ -140,8 +143,10 @@ The smart contract includes the following functionalities:
 
 The contract is written in Solidity and uses OpenZeppelin libraries for security.
 
+---
 
 ## Testing
+### Run Unit Tests
 Run tests to ensure the functionality of the smart contract:
 ```sh
 npx hardhat test
@@ -151,6 +156,13 @@ Sample test cases include:
 * Adding candidates.
 * Voting during valid periods.
 * Retrieving results.
+
+### Coverage
+Generate a coverage report:
+```sh
+npx hardhat coverage
+```
+---
 
 ### License
 This project is licensed under the MIT License. See the [LICENSE](https://github.com/hedigardi/test-voting/blob/main/LICENSE.md) file for details.
