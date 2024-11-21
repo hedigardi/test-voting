@@ -232,7 +232,7 @@ const VotingPage = () => {
                     {new Date(session.endTime * 1000).toLocaleString()}
                   </p>
                   {session.hasVoted && (
-                    <p className="text-success">Your vote has been successfully recorded.</p>
+                    <p className="text-success">Your vote has been successfully cast.</p>
                   )}
                   <ul className="list-group">
                     {session.candidates.map((candidate) => (
