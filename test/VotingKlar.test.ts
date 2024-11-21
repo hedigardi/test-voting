@@ -1,36 +1,42 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
+// Test suite for the VotingKlar smart contract
 describe("VotingKlar", function () {
+  // Helper function to deploy the VotingKlar contract and set up signers
   async function deployVotingFixture() {
-    const [owner, user1, user2] = await ethers.getSigners();
+    const [owner, user1, user2] = await ethers.getSigners(); // Get test accounts
 
-    const VotingKlar = await ethers.getContractFactory("VotingKlar");
-    const votingKlar = await VotingKlar.deploy();
+    const VotingKlar = await ethers.getContractFactory("VotingKlar"); // Fetch contract factory
+    const votingKlar = await VotingKlar.deploy(); // Deploy the contract
 
-    return { votingKlar, owner, user1, user2 };
+    return { votingKlar, owner, user1, user2 }; // Return deployed contract and accounts
   }
 
+  // Test cases related to contract deployment
   describe("Deployment", function () {
     it("Should deploy with an initial session count of 0", async function () {
       const { votingKlar } = await deployVotingFixture();
-      expect(await votingKlar.sessionCount()).to.equal(0);
+      expect(await votingKlar.sessionCount()).to.equal(0); // Check initial session count
     });
   });
 
+  // Test cases for creating a voting session
   describe("createVotingSession", function () {
     it("Should create a voting session", async function () {
       const { votingKlar, owner } = await deployVotingFixture();
   
-      const startTime = Math.floor(Date.now() / 1000) + 100; // 100 seconds in the future
-      const endTime = startTime + 600; // 600 seconds after startTime
+      const startTime = Math.floor(Date.now() / 1000) + 100; // Future start time
+      const endTime = startTime + 600; // End time after start time
   
+      // Expect the VotingSessionCreated event to be emitted with the correct arguments
       await expect(
         votingKlar.createVotingSession("Test Voting", startTime, endTime)
       )
         .to.emit(votingKlar, "VotingSessionCreated")
-        .withArgs(owner.address, 0, "Test Voting", startTime, endTime); // Match all arguments
-  
+        .withArgs(owner.address, 0, "Test Voting", startTime, endTime);
+
+      // Verify session details
       const session = await votingKlar.votingSessions(0);
       expect(session.title).to.equal("Test Voting");
       expect(session.startTime).to.equal(startTime);
@@ -42,14 +48,16 @@ describe("VotingKlar", function () {
       const { votingKlar } = await deployVotingFixture();
   
       const startTime = Math.floor(Date.now() / 1000) + 100;
-      const endTime = startTime - 100;
+      const endTime = startTime - 100; // Invalid end time
   
+      // Expect the transaction to revert with an error
       await expect(
         votingKlar.createVotingSession("Invalid Voting", startTime, endTime)
       ).to.be.revertedWith("End time must be after start time");
     });
-  });  
+  });
 
+  // Test cases for adding candidates
   describe("addCandidate", function () {
     it("Should allow session creator to add a candidate", async function () {
       const { votingKlar, owner } = await deployVotingFixture();
@@ -59,10 +67,12 @@ describe("VotingKlar", function () {
 
       await votingKlar.createVotingSession("Voting with Candidates", startTime, endTime);
 
+      // Add a candidate and expect the CandidateAdded event to be emitted
       await expect(votingKlar.addCandidate(0, "Candidate 1"))
         .to.emit(votingKlar, "CandidateAdded")
         .withArgs(0, "Candidate 1");
 
+      // Verify candidate details
       const candidates = await votingKlar.getCandidates(0);
       expect(candidates.length).to.equal(1);
       expect(candidates[0].name).to.equal("Candidate 1");
@@ -76,6 +86,7 @@ describe("VotingKlar", function () {
 
       await votingKlar.createVotingSession("Unauthorized Add", startTime, endTime);
 
+      // Expect transaction to revert with the correct error message
       await expect(
         votingKlar.connect(user1).addCandidate(0, "Candidate 2")
       ).to.be.revertedWith("Only the session creator can perform this action");
@@ -84,6 +95,7 @@ describe("VotingKlar", function () {
     it("Should fail if session does not exist", async function () {
       const { votingKlar } = await deployVotingFixture();
 
+      // Attempt to add a candidate to a non-existent session
       await expect(
         votingKlar.addCandidate(1, "Nonexistent Candidate")
       ).to.be.revertedWith("Session does not exist");
@@ -97,6 +109,7 @@ describe("VotingKlar", function () {
 
       await votingKlar.createVotingSession("Multiple Candidates", startTime, endTime);
 
+      // Add multiple candidates and verify their details
       await expect(votingKlar.addCandidate(0, "Candidate 1"))
         .to.emit(votingKlar, "CandidateAdded")
         .withArgs(0, "Candidate 1");
@@ -111,6 +124,7 @@ describe("VotingKlar", function () {
     });
   });
 
+  // Test cases for voting functionality
   describe("vote", function () {
     it("Should allow voting during the voting period", async function () {
       const { votingKlar, user1 } = await deployVotingFixture();
@@ -124,6 +138,7 @@ describe("VotingKlar", function () {
       // Wait for the session to become active
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
+      // Cast a vote and expect the VoteCast event to be emitted
       await expect(votingKlar.connect(user1).vote(0, 0))
         .to.emit(votingKlar, "VoteCast")
         .withArgs(user1.address, 0, 0);
@@ -132,6 +147,7 @@ describe("VotingKlar", function () {
       expect(candidates[0].voteCount).to.equal(1);
     });
 
+    // Additional test cases for edge cases, including invalid votes and duplicate votes
     it("Should fail if voting outside the voting period", async function () {
       const { votingKlar, user1 } = await deployVotingFixture();
 
@@ -273,7 +289,7 @@ describe("VotingKlar", function () {
       expect(creator).to.equal(owner.address);
     });
   });
-
+  
   describe("getCandidates", function () {
     it("Should return an empty array if no candidates exist", async function () {
       const { votingKlar } = await deployVotingFixture();
@@ -304,6 +320,7 @@ describe("VotingKlar", function () {
     });
   });
 
+  // Additional test suites for functions like `getWinner`, `archiveSession`, etc.
   describe("archiveSession", function () {
     it("Should archive a session after its end time", async function () {
       const { votingKlar } = await deployVotingFixture();
