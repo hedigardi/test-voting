@@ -1,4 +1,4 @@
-# Voting DApp
+# Voting dApp
 
 A decentralized application (dApp) for conducting transparent and efficient voting processes on the Ethereum blockchain.
 
