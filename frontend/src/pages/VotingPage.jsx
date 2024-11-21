@@ -262,6 +262,36 @@ const VotingPage = () => {
               No voting sessions available.
             </div>
           )}
+
+          {/* Legal Considerations */}
+          <div className="card mt-4">
+            <div className="card-body">
+              <h5 className="card-title">Legal Considerations</h5>
+              <p className="card-text">
+                This voting application uses blockchain technology to ensure transparency and
+                immutability of records. Please note:
+              </p>
+              <ul>
+                <li>
+                  <strong>Transparency:</strong> All transactions are stored publicly on the
+                  blockchain and cannot be altered or deleted.
+                </li>
+                <li>
+                  <strong>Privacy:</strong> Your wallet address is visible on the blockchain, but no
+                  personal information is stored by this application.
+                </li>
+                <li>
+                  <strong>GDPR Compliance:</strong> By participating, you acknowledge that
+                  blockchain data cannot be modified or erased, as per the decentralized nature of
+                  the technology.
+                </li>
+              </ul>
+              <p className="text-muted">
+                Ensure that you understand and accept these terms before participating in the
+                voting process.
+              </p>
+            </div>
+          </div>
         </>
       )}
     </div>
