@@ -149,7 +149,7 @@ The contract is written in Solidity and uses OpenZeppelin libraries for security
 ### Run Unit Tests
 Run tests to ensure the functionality of the smart contract:
 ```sh
-npx hardhat test
+npm test
 ```
 Sample test cases include:
 * Creating voting sessions.
@@ -160,7 +160,7 @@ Sample test cases include:
 ### Coverage
 Generate a coverage report:
 ```sh
-npx hardhat coverage
+npm run coverage
 ```
 ---
 
