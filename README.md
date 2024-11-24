@@ -87,7 +87,7 @@ ETHERSCAN_API_KEY=your-etherscan-api-key
 
 ### Compile the Smart Contract
 ```sh
-npx hardhat compile
+npm run compile
 ```
 
 ### Deploy the Smart Contract
