@@ -212,7 +212,53 @@ describe("VotingContract2", function () {
         votingContract2.connect(user1).vote(0, 0)
       ).to.be.revertedWith("Invalid candidate ID");
     });
-  });
+
+    it("Should allow voting exactly at the session start time", async function () {
+        const { votingContract2, user1 } = await deployVotingFixture();
+    
+        const startTime = Math.floor(Date.now() / 1000) + 1; // Start in 1 second
+        const endTime = startTime + 600;
+    
+        await votingContract2.createVotingSession("Boundary Test", startTime, endTime);
+        await votingContract2.addCandidate(0, "Candidate A");
+    
+        // Wait for the session to start
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+        await expect(votingContract2.connect(user1).vote(0, 0)).to.emit(
+            votingContract2,
+            "VoteCast"
+        );
+    });
+    
+    it("Should allow voting exactly at the session end time", async function () {
+        const { votingContract2, user1 } = await deployVotingFixture();
+    
+        // Get current block timestamp
+        const latestBlock = await ethers.provider.getBlock('latest');
+        const currentTime = latestBlock!.timestamp;
+    
+        // Set start time 10 seconds from now and end time 20 seconds from now
+        const startTime = currentTime + 10;
+        const endTime = currentTime + 20;
+    
+        await votingContract2.createVotingSession("Boundary Test", startTime, endTime);
+        await votingContract2.addCandidate(0, "Candidate A");
+    
+        // Move time forward to start time
+        await ethers.provider.send("evm_setNextBlockTimestamp", [startTime]);
+        await ethers.provider.send("evm_mine");
+    
+        // Vote at the start time
+        await expect(votingContract2.connect(user1).vote(0, 0))
+            .to.emit(votingContract2, "VoteCast")
+            .withArgs(user1.address, 0, 0);
+    
+        // Verify the vote was counted
+        const candidates = await votingContract2.getCandidates(0);
+        expect(candidates[0].voteCount).to.equal(1);
+    });    
+});
 
   describe("hasUserVoted", function () {
     it("Should return false if the user has not voted", async function () {
@@ -288,6 +334,14 @@ describe("VotingContract2", function () {
       const creator = await votingContract2.getSessionCreator(0);
       expect(creator).to.equal(owner.address);
     });
+
+    it("Should revert if session ID is very high", async function () {
+        const { votingContract2 } = await deployVotingFixture();
+    
+        await expect(votingContract2.getCandidates(999)).to.be.revertedWith(
+            "Session does not exist"
+        );
+    });    
   });
   
   describe("getCandidates", function () {
@@ -467,5 +521,20 @@ describe("VotingContract2", function () {
       expect(winnerName).to.equal("");
       expect(isTie).to.equal(true);
     });
+
+    it("Should return no winner if all candidates have 0 votes", async function () {
+        const { votingContract2 } = await deployVotingFixture();
+    
+        const startTime = Math.floor(Date.now() / 1000) + 1;
+        const endTime = startTime + 600;
+    
+        await votingContract2.createVotingSession("Zero Vote Test", startTime, endTime);
+        await votingContract2.addCandidate(0, "Candidate A");
+        await votingContract2.addCandidate(0, "Candidate B");
+    
+        const [winnerName, isTie] = await votingContract2.getWinner(0);
+        expect(winnerName).to.equal("");
+        expect(isTie).to.equal(true);
+    });    
   });
 });

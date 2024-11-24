@@ -17,6 +17,14 @@ const config: HardhatUserConfig = {
 
   // Network configurations
   networks: {
+    hardhat: {
+      allowUnlimitedContractSize: true, // Allow larger contracts during testing
+      mining: {
+        auto: true, // Enable automatic mining of blocks
+        interval: 0, // Disable block mining delay for faster tests
+      },
+      blockGasLimit: 12000000, // Increase block gas limit for larger transactions
+    },
     sepolia: {
       url: `https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}`, // Alchemy endpoint for Sepolia
       accounts: [SEPOLIA_PRIVATE_KEY], // Private key for deploying contracts to Sepolia
