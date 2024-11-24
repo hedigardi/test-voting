@@ -1,30 +1,45 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.27;
 
-contract VotingKlar {
+// Importing OpenZeppelin Libraries
+import "@openzeppelin/contracts/access/Ownable.sol"; // For ownership and access control
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; // For reentrancy protection
+
+/**
+ * @title VotingContract2
+ * @dev A decentralized voting system allowing users to create, manage, and participate in voting sessions.
+ */
+contract VotingContract2 is Ownable, ReentrancyGuard {
     // Struct to represent a candidate in the voting session
     struct Candidate {
         string name; // Candidate's name
-        uint voteCount; // Number of votes received by the candidate
+        uint voteCount; // Number of votes received
     }
 
     // Struct to represent a voting session
     struct VotingSession {
         uint id; // Unique identifier for the session
         string title; // Title of the voting session
-        uint startTime; // Timestamp when the session starts
-        uint endTime; // Timestamp when the session ends
-        Candidate[] candidates; // List of candidates in the session
-        mapping(address => bool) hasVoted; // Mapping to track if an address has voted
-        bool isActive; // Status of the session (active/inactive)
+        uint startTime; // Start time of the session
+        uint endTime; // End time of the session
+        Candidate[] candidates; // List of candidates
+        mapping(address => bool) hasVoted; // Tracks if an address has voted
+        bool isActive; // Session status (active/inactive)
         address creator; // Address of the session creator
     }
 
-    uint public sessionCount; // Counter to keep track of the total number of sessions
-    mapping(uint => VotingSession) public votingSessions; // Mapping of session ID to VotingSession
+    // Public variables
+    uint public sessionCount; // Counter for total sessions
+    mapping(uint => VotingSession) public votingSessions; // Mapping session IDs to VotingSession
 
-    // Events to log activities in the contract
-    event VotingSessionCreated(address indexed creator, uint sessionId, string title, uint startTime, uint endTime);
+    // Events to track contract actions
+    event VotingSessionCreated(
+        address indexed creator,
+        uint sessionId,
+        string title,
+        uint startTime,
+        uint endTime
+    );
     event CandidateAdded(uint indexed sessionId, string candidateName);
     event VoteCast(address indexed voter, uint indexed sessionId, uint candidateId);
     event SessionArchived(uint indexed sessionId);
@@ -39,7 +54,7 @@ contract VotingKlar {
         _;
     }
 
-    // Modifier to check if a voting session exists
+    // Modifier to ensure a voting session exists
     modifier sessionExists(uint sessionId) {
         require(votingSessions[sessionId].id == sessionId, "Session does not exist");
         _;
@@ -55,16 +70,21 @@ contract VotingKlar {
     }
 
     /**
-     * @notice Create a new voting session
-     * @param title The title of the voting session
-     * @param startTime The start time of the voting session (timestamp)
-     * @param endTime The end time of the voting session (timestamp)
+     * @dev Constructor to initialize the contract with the owner address.
+     */
+    constructor() Ownable(msg.sender) {}
+
+    /**
+     * @notice Create a new voting session.
+     * @param title The title of the voting session.
+     * @param startTime The start time of the voting session (timestamp).
+     * @param endTime The end time of the voting session (timestamp).
      */
     function createVotingSession(
         string memory title,
         uint startTime,
         uint endTime
-    ) public {
+    ) public onlyOwner {
         require(endTime > startTime, "End time must be after start time");
 
         VotingSession storage session = votingSessions[sessionCount];
@@ -76,14 +96,13 @@ contract VotingKlar {
         session.creator = msg.sender;
 
         emit VotingSessionCreated(msg.sender, sessionCount, title, startTime, endTime);
-
         sessionCount++;
     }
 
     /**
-     * @notice Add a candidate to a voting session
-     * @param sessionId The ID of the voting session
-     * @param name The name of the candidate
+     * @notice Add a candidate to a voting session.
+     * @param sessionId The ID of the voting session.
+     * @param name The name of the candidate.
      */
     function addCandidate(uint sessionId, string memory name)
         public
@@ -97,12 +116,13 @@ contract VotingKlar {
     }
 
     /**
-     * @notice Cast a vote for a candidate in a session
-     * @param sessionId The ID of the voting session
-     * @param candidateId The ID of the candidate
+     * @notice Cast a vote for a candidate in a session.
+     * @param sessionId The ID of the voting session.
+     * @param candidateId The ID of the candidate.
      */
     function vote(uint sessionId, uint candidateId)
         public
+        nonReentrant
         onlyDuringVotingPeriod(sessionId)
         sessionExists(sessionId)
     {
@@ -117,8 +137,8 @@ contract VotingKlar {
     }
 
     /**
-     * @notice Archive a voting session after it has ended
-     * @param sessionId The ID of the voting session
+     * @notice Archive a voting session after it has ended.
+     * @param sessionId The ID of the voting session.
      */
     function archiveSession(uint sessionId) public sessionExists(sessionId) {
         VotingSession storage session = votingSessions[sessionId];
@@ -129,9 +149,9 @@ contract VotingKlar {
     }
 
     /**
-     * @notice Retrieve all candidates in a session
-     * @param sessionId The ID of the voting session
-     * @return An array of Candidate structs
+     * @notice Retrieve all candidates in a session.
+     * @param sessionId The ID of the voting session.
+     * @return An array of Candidate structs.
      */
     function getCandidates(uint sessionId)
         public
@@ -143,10 +163,10 @@ contract VotingKlar {
     }
 
     /**
-     * @notice Get the winner of a voting session
-     * @param sessionId The ID of the voting session
-     * @return winnerName The name of the winning candidate
-     * @return isTie A boolean indicating if the session resulted in a tie
+     * @notice Get the winner of a voting session.
+     * @param sessionId The ID of the voting session.
+     * @return winnerName The name of the winning candidate.
+     * @return isTie A boolean indicating if the session resulted in a tie.
      */
     function getWinner(uint sessionId)
         public
@@ -155,7 +175,6 @@ contract VotingKlar {
         returns (string memory winnerName, bool isTie)
     {
         VotingSession storage session = votingSessions[sessionId];
-
         require(session.candidates.length > 0, "No candidates in the session");
 
         uint maxVotes = 0;
@@ -179,10 +198,10 @@ contract VotingKlar {
     }
 
     /**
-     * @notice Check if a user has voted in a session
-     * @param sessionId The ID of the voting session
-     * @param user The address of the user
-     * @return A boolean indicating if the user has voted
+     * @notice Check if a user has voted in a session.
+     * @param sessionId The ID of the voting session.
+     * @param user The address of the user.
+     * @return A boolean indicating if the user has voted.
      */
     function hasUserVoted(uint sessionId, address user)
         public
@@ -194,9 +213,9 @@ contract VotingKlar {
     }
 
     /**
-     * @notice Get the creator of a voting session
-     * @param sessionId The ID of the voting session
-     * @return The address of the session creator
+     * @notice Get the creator of a voting session.
+     * @param sessionId The ID of the voting session.
+     * @return The address of the session creator.
      */
     function getSessionCreator(uint sessionId)
         public

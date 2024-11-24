@@ -35,14 +35,7 @@ const Header = () => {
             {/* Link to the Home page */}
             <li className="nav-item">
               <Link className="nav-link" to="/">
-                Home
-              </Link>
-            </li>
-
-            {/* Link to the Admin Panel page */}
-            <li className="nav-item">
-              <Link className="nav-link" to="/admin">
-                Admin Panel
+                Voting
               </Link>
             </li>
 
@@ -52,6 +45,13 @@ const Header = () => {
                 Results
               </Link>
             </li>
+
+            {/* Link to the Admin Panel page */}
+            <li className="nav-item">
+              <Link className="nav-link" to="/admin">
+                Admin Panel
+              </Link>
+            </li>            
           </ul>
         </div>
       </div>

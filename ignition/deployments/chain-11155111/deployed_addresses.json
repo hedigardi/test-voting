@@ -9,5 +9,6 @@
   "VotingFinitoModule#VotingFinito": "0x82ca842e9Fa1F5c6f3F50d6ABC241203682e8F99",
   "VotingSistaModule#VotingSista": "0x0d069B0BCEf89E8BE916B67B8cf8013E1a138fb7",
   "VotingCompleteModule#VotingComplete": "0x0b4811fAA362d4D10Fbc9653E064a3e3abcAFc6c",
-  "VotingKlarModule#VotingKlar": "0xAB0C9E6C8009ACd11C42198b648ec2E4ac59eDa5"
+  "VotingKlarModule#VotingKlar": "0xAB0C9E6C8009ACd11C42198b648ec2E4ac59eDa5",
+  "VotingContract2Module#VotingContract2": "0x284fE9E02D6319E66824335A3aEC6D5185aD8435"
 }

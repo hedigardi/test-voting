@@ -277,6 +277,7 @@ const AdminPanel = () => {
       {/* Wallet not connected view */}
       {!walletConnected && (
         <div className="text-center">
+          <p>Connect your wallet to interact with the dApp.</p>
           <button className="btn btn-primary" onClick={connectWallet}>
             Connect Wallet
           </button>
